@@ -125,3 +125,36 @@ quickSort (x:list) = quickSort small ++ (x : quickSort large)
     where
         small = [y | y <- list, y <= x]
         large = [y | y <- list, y > x]
+
+-- Find out the N first even values of the fibonacci sequence
+fibo :: Int -> Int
+fibo n
+    | n <= 0 = 1
+    | otherwise = fibo (n - 1) + fibo (n - 2)
+
+fibSeq :: Int -> Int -> [Int]
+fibSeq n x
+    | x == 0 = []
+    | (fibo n) `mod` 2 == 0 = (fibo n) : (fibSeq (n + 1) (x - 1))
+    | otherwise = (fibSeq (n + 1) (x))
+
+firstN :: Int -> [Int]
+firstN x = fibSeq (0) (x)
+
+-- Sort based on sumDigits
+sumDigits :: Int -> Int
+sumDigits n
+    | n == 0 = 0
+    | otherwise = (n `mod` 10) + sumDigits (n `div` 10)
+
+getList :: [Int] -> [Int]
+getList list
+    | list == [] = []
+    | otherwise = (sumDigits (head list)) : (getList (tail list))
+
+sortSum :: [Int] -> [Int]
+sortSum [] = []
+sortSum (x:list) = sortSum small ++ (sumDigits (x) : sortSum large)
+    where
+        small = [y | y <- getList (list), y <= sumDigits (x)]
+        large = [y | y <- getList (list), y > sumDigits (x)]
