@@ -158,3 +158,124 @@ sortSum (x:list) = sortSum small ++ (sumDigits (x) : sortSum large)
     where
         small = [y | y <- getList (list), y <= sumDigits (x)]
         large = [y | y <- getList (list), y > sumDigits (x)]
+
+-- Shift terms
+shift :: ((Int, Int), Int) -> (Int, (Int, Int))
+shift ((x, y), z) = (x, (y, z))
+
+-- Solve two linear equations
+oneRoot :: Float -> Float -> Float -> Float
+oneRoot a b c = - b / (2 * a)
+
+twoRoot :: Float -> Float -> Float -> (Float, Float)
+twoRoot a b c = (d + e, d - e)
+    where
+        d = - b / (2 * a)
+        e = sqrt (b*b - 4*a*c)
+
+roots :: Float -> Float -> Float -> String
+roots a b c
+    | d == 0 = show (oneRoot a b c)
+    | d > 0 = show (x) ++ " " ++ show (y)
+    | otherwise = "no roots"
+        where
+            d = sqrt (b * b - 4 * a * c)
+            (x, y) = twoRoot a b c
+
+-- Implement lowerGreater
+
+lower :: Int -> Int -> Int -> Int
+lower a b c
+    | a <= b && a <= c = a
+    | b <= a && b <= c = b
+    | c <= a && c <= b = c
+
+greater :: Int -> Int -> Int -> Int
+greater a b c
+    | a >= b && a >= c = a
+    | b >= a && b >= c = b
+    | c >= a && c >= b = c
+
+lowerGreater :: Int -> Int -> Int -> (Int, Int)
+lowerGreater a b c = (lower a b c, greater a b c)
+
+-- Implement orderTriple
+
+orderTriple :: (Int, Int, Int) -> (Int, Int, Int)
+orderTriple (a, b, c) = (d, e, f)
+    where
+        d = lower a b c
+        f = greater a b c
+        e = a + b + c - d - f
+
+-- Intersect lines
+-- ERROR
+
+type Point = (Float, Float)
+type Line = (Point, Point)
+
+--parallel :: Line -> Line -> Bool
+--parallel (a, b) (c, d)
+--    | a * d == b * c = True
+--    | otherwise = False
+
+-- First digit character of a string
+
+isDigit :: Char -> Bool
+isDigit a = (a >= 'a' && a <= 'z') || (a >= 'A' && a <= 'Z')
+
+firstChar :: String -> Char
+firstChar str
+    | str == [] = '\0'
+    | isDigit (head str) = (head str)
+    | otherwise = firstChar (tail str)
+
+onlyChar :: String -> String
+onlyChar str
+    | str == [] = []
+    | isDigit (head str) = (head str) : onlyChar (tail str)
+    | otherwise = onlyChar (tail str)
+
+firstChar2 :: String -> Char
+firstChar2 str = case (onlyChar str) of
+    [] -> '\0'
+    (a:as) -> a
+
+-- Double List with list compression
+
+double2 :: [Int] -> [Int]
+double2 list = [2*x | x <- list]
+
+-- Double if even
+
+isEven :: Int -> Bool
+isEven n = n `mod` 2 == 0
+
+doubleEven :: [Int] -> [Int]
+doubleEven list = [2*x | x <- list, isEven x]
+
+-- sumPairs with list compression
+
+sumPairs :: [(Int, Int)] -> [Int]
+sumPairs list = [x+y | (x, y) <- list]
+
+-- OnlyChar with list compression
+
+onlyChar2 :: String -> String
+onlyChar2 str = [x | x <- str, isDigit x]
+
+-- Implement a sample of a DB for people and books
+
+type Person = String
+type Book = String
+type DB = [(Person, Book)]
+
+banco :: DB
+banco = [("Joao", "A"),
+               ("Maria", "B"),
+               ("Victor", "C"),
+               ("Luis", "A"),
+               ("Maria", "D")]
+
+--bookedByPerson :: DB -> Person -> [Book]
+--bookedByPerson b p = [l | (p, l) <- b]
