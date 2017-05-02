@@ -277,5 +277,76 @@ banco = [("Joao", "A"),
                ("Luis", "A"),
                ("Maria", "D")]
 
---bookedByPerson :: DB -> Person -> [Book]
---bookedByPerson b p = [l | (p, l) <- b]
+bookedByPerson :: DB -> Person -> [Book]
+bookedByPerson b p = [l | (x, l) <- b, x == p]
+
+bookedByBook :: DB -> Book -> [Person]
+bookedByBook b bo = [p | (p, x) <- b, x == bo]
+
+isBooked :: DB -> Book -> Bool
+isBooked b bo = length (bookedByBook b bo) > 0
+
+amountBookedByPerson :: DB -> Person -> Int
+amountBookedByPerson b p = length (bookedByPerson b p)
+
+book :: DB -> Person -> Book -> DB
+book bo p b = (p, b):bo
+
+unBook :: DB -> Person -> Book -> DB
+unBook bo p b = [(a, c) | (a, c) <- bo, (a, c) /= (p, b)]
+
+-- Membership of a list using list compression
+
+membership2 :: [Int] -> Int -> Bool
+membership2 list x = length ([y | y <- list, y == x]) > 0
+
+-- Text processing samples
+
+clearSpaces :: String -> String
+clearSpaces str
+    | str == [] = []
+    | (head str) == ' ' = clearSpaces (tail str)
+    | otherwise = (head str) : (clearSpaces (tail str))
+
+-- Funções polimórficas
+
+-- Reverse
+
+rev [] = []
+rev (a:as) = rev (as) ++ [a]
+
+-- Size
+
+myLength [] = 0
+myLength (a:as) = 1 + myLength (as)
+
+-- Take
+
+takke 0 list = []
+takke n (a:as) = a : takke (n - 1) (as)
+
+-- Drrop
+
+drrop 0 [] = []
+drrop 0 (a:as) = a : (drrop 0 as)
+drrop n (a:as) = drrop (n - 1) (as)
+
+-- TakeWhile
+
+takkeWhile _ [] = []
+takkeWhile p (a:as)
+    | p (a) = a : (takkeWhile p as)
+    | otherwise = []
+
+-- DropWhile
+
+drropWhile _ [] = []
+drropWhile p (a:as)
+    | p (a) = (drropWhile p as)
+    | otherwise = drop 1 as
+
+-- Using Eq
+
+membership3 :: Eq t => [t] -> t -> Bool
+membership3 [] x = False
+membership3 (a:as) x = (a == x) || (membership3 as x)
