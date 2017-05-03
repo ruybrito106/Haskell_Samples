@@ -389,9 +389,9 @@ instance MyVisible t => MyVisible [t]
 -- Using Eq
 
 -- Only works for the types instantiated above
-membership3 :: MyEq t => [t] -> t -> Bool
+membership3 :: Eq t => [t] -> t -> Bool
 membership3 [] x = False
-membership3 (a:as) x = (a === x) || (membership3 as x)
+membership3 (a:as) x = (a == x) || (membership3 as x)
 
 -- Derived Classes
 
@@ -399,3 +399,72 @@ membership3 (a:as) x = (a === x) || (membership3 as x)
 --    where
 --        (<), (<=), (>), (>=) :: t -> t -> Bool
 --        max, min :: t -> t -> t
+
+data Season = Spring | Winter | Summer | Fall
+data Weather = Cold | Hot
+
+getWeather :: Season -> Weather
+getWeather Winter = Cold
+getWeather _ = Hot
+
+-- Sample
+
+data Shape =
+    Circle Float
+    | Rectangle Float Float
+
+isRound :: Shape -> Bool
+isRound (Circle _) = True
+isRound (Rectangle _ _) = False
+
+area :: Shape -> Float
+area (Circle r) = 3.1415 * r * r
+area (Rectangle l r) = l * r
+
+-- Dias e aulas
+
+data Dia = Segunda | Terca | Quarta | Quinta | Sexta | Sabado | Domingo
+data Aula = Metodologia | PLC | Projetao | HFC | Multimidia | Compiladores deriving (Show, Eq, Read)
+
+aulas :: Dia -> [Aula]
+aulas Segunda = [Projetao]
+aulas Terca = [PLC, Compiladores]
+aulas Quarta = [Metodologia, Multimidia]
+aulas Quinta = [Metodologia, PLC]
+aulas Sexta = [HFC, Compiladores]
+aulas _ = []
+
+isWeekend :: Dia -> Bool
+isWeekend Sabado = True
+isWeekend Domingo = True
+isWeekend _ = False
+
+hasPLC :: Dia -> Bool
+hasPLC d = membership3 (aulas d) (PLC)
+
+-- Recursive data
+
+data Expr =
+    Lit Int
+    | Add Expr Expr
+    | Sub Expr Expr
+
+eval :: Expr -> Int
+eval (Lit x) = x
+eval (Add x y) = (eval x) + (eval y)
+eval (Sub x y) = (eval x) - (eval y)
+
+-- Testing: eval (Add (Add (Lit 1) (Lit 10)) (Sub (Lit 2) (Lit 3)))
+-- Polimorfic Data Assignment
+
+data Pairs t = Pair t t
+data List t = Nil | Cons t (List t)
+data Tree t = NilT | Node t (Tree t) (Tree t) deriving (Show)
+
+sumTree :: Tree Int -> Int
+sumTree (NilT) = 0
+sumTree (Node v e d) = v + sumTree (e) + sumTree (d)
+
+maxTree :: Tree Int -> Int
+maxTree (NilT) = 0
+maxTree (Node v e d) = maxi (v) (maxi (maxTree (d)) (maxTree (e)))
