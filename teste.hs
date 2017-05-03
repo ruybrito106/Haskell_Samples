@@ -448,23 +448,139 @@ data Expr =
     Lit Int
     | Add Expr Expr
     | Sub Expr Expr
+    deriving (Show)
 
 eval :: Expr -> Int
 eval (Lit x) = x
 eval (Add x y) = (eval x) + (eval y)
 eval (Sub x y) = (eval x) - (eval y)
 
+showExpr :: Expr -> String
+showExpr (Lit x) = show x
+showExpr (Add x y) = (showExpr x) ++ "+" ++ (showExpr y)
+showExpr (Sub x y) = (showExpr x) ++ "-" ++ (showExpr y)
+
 -- Testing: eval (Add (Add (Lit 1) (Lit 10)) (Sub (Lit 2) (Lit 3)))
 -- Polimorfic Data Assignment
 
 data Pairs t = Pair t t
-data List t = Nil | Cons t (List t)
-data Tree t = NilT | Node t (Tree t) (Tree t) deriving (Show)
+data List t = Nil | Cons t (List t) deriving (Show)
+data Tree t = NilT | Node t (Tree t) (Tree t) deriving (Show, Eq, Ord, Read)
 
+-- Code a function to get the sum value of a tree
 sumTree :: Tree Int -> Int
 sumTree (NilT) = 0
 sumTree (Node v e d) = v + sumTree (e) + sumTree (d)
+-- Testing: sumTree (Node 2 (Node 3 (NilT) (NilT)) (Node 4 (NilT) (NilT)))
+-- 9
 
+-- Code a function to get the maximum value of a tree
 maxTree :: Tree Int -> Int
 maxTree (NilT) = 0
 maxTree (Node v e d) = maxi (v) (maxi (maxTree (d)) (maxTree (e)))
+-- Testing: maxTree (Node 2 (Node 3 (NilT) (NilT)) (Node 4 (NilT) (NilT)))
+-- 4
+
+-- Code a function to turn a List (data) into a List (predefined)
+toList :: List t -> [t]
+toList (Nil) = []
+toList (Cons (a) (as)) = a : (toList (as))
+-- Testing: toList (Cons 2 (Cons 3 (Cons 4 (Cons 5 (Nil)))))
+-- [2,3,4,5]
+
+-- Code a function to turn a List (predfinfed) into a List (data)
+fromList :: [t] -> List t
+fromList [] = Nil
+fromList (a:as) = Cons (a) (fromList (as))
+-- Testing: toList ([2,3,4,5]) // Needs deriving Show
+-- Cons 2 (Cons 3 (Cons 4 (Cons 5 (Nil))))
+
+-- Code a function to calculate the depth of a tree
+depth :: Tree t -> Int
+depth (NilT) = 0
+depth (Node n e d) = 1 + maxi (depth (e)) (depth (d))
+-- Testing: depth (Node 2 (Node 3 (NilT) (NilT)) (Node 4 (Node 5 (NilT) (NilT)) (NilT)))
+-- 3
+
+-- Collapse a tree into an array
+collapse :: Tree t -> [t]
+collapse (NilT) = []
+collapse (Node n e d) = (n : collapse (e)) ++ collapse (d)
+-- Testing: collapse (Node 2 (Node 3 (NilT) (NilT)) (Node 4 (Node 5 (NilT) (NilT)) (NilT)))
+-- [2,3,4,5]
+
+-- BFS to find an element
+bfs :: Eq t => Tree t -> t -> Bool
+bfs (NilT) (_) = False
+bfs (Node n e d) (x) = (x == n) || (bfs (e) (x)) || (bfs (d) (x))
+-- Testing: bfs (Node 2 (Node 3 (NilT) (NilT)) (Node 4 (Node 5 (NilT) (NilT)) (NilT))) (5)
+-- True
+
+-- Map between two trees
+mapTree :: (t -> u) -> Tree t -> Tree u
+mapTree (f) (NilT) = NilT
+mapTree (f) (Node n e d) = (Node (f (n)) (mapTree (f) (e)) (mapTree (f) (d)))
+-- Testing: mapTree (>3) (Node 2 (Node 3 (NilT) (NilT)) (Node 4 (Node 5 (NilT) (NilT)) (NilT)))
+-- Node False (Node False NilT NilT) (Node True (Node True NilT NilT) NilT)
+
+-- DoubleList with map
+double3 :: [Int] -> [Int]
+double3 list = map (* 2) (list)
+
+-- Take seconds with map
+takeSeconds :: [(t, t)] -> [t]
+takeSeconds list = map (snd) (list)
+
+-- Map with list comprehension
+myMap :: (t -> u) -> [t] -> [u]
+myMap f list = [f (a) | a <- list]
+
+-- Folding
+fold :: (t -> t -> t) -> [t] -> t
+fold f [a] = a
+fold f (a:as) = f (a) (fold (f) (as))
+-- defined as foldr1 in GHC
+
+-- SumList with fold
+sumList2 :: [Int] -> Int
+sumList2 list = fold (+) list
+
+-- Array and with fold
+theAnd :: [Bool] -> Bool
+theAnd list = fold (&&) list
+
+-- Longest String
+longestString :: [String] -> Int
+longestString list = fold (max) (map (length) (list))
+
+-- Insert element into tree
+insertTree :: t -> Tree t -> Tree t
+insertTree x tree = (Node x (tree) (NilT))
+
+insertTree2 :: t -> Tree t -> Tree t
+insertTree2 (x) (NilT) = (Node x (NilT) (NilT))
+insertTree2 (x) (Node n e d) = Node n (insertTree2 (x) (e)) (d)
+
+-- Testing:
+--      insertTree (2) (Node 3 (NilT) (NilT))
+--      Node 2 (Node 3 NilT NilT) NilT
+
+--      insertTree2 (2) (Node 3 (NilT) (NilT))
+--      Node 3 (Node 2 NilT NilT) NilT
+
+createTree :: Ord t => [t] -> Tree t
+createTree [] = (NilT)
+createTree (a:as) = (Node a (createTree d) (createTree e))
+    where
+        d = [x | x <- as, x < a]
+        e = [x | x <- as, x > a]
+
+-- onlyPrimes with filter
+onlyPrimes2 :: [Int] -> [Int]
+onlyPrimes2 list = filter (isPrime) (list)
+
+-- removerLowerSum
+removerLowerSum :: [[Int]] -> Int -> [[Int]]
+removerLowerSum list val = filter (func) (list)
+    where
+        func l = (foldr (+) 0 l) >= val
