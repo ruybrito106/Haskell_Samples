@@ -345,8 +345,57 @@ drropWhile p (a:as)
     | p (a) = (drropWhile p as)
     | otherwise = drop 1 as
 
+-- Classes are collections of types for which there is an associated function
+--      with different interpretations for each of them
+--      e.g. Eq is the class for the function (==) which has different interpretations
+--             for Int, String, Bool ...
+--
+
+-- Defining and creating instances for Eq
+
+class MyEq t
+    where
+        (===) :: t -> t -> Bool
+
+instance MyEq Bool
+    where
+        True === True = True
+        False === False = True
+        _ === _ = False
+
+-- Defining and creating instances for Visible
+
+class MyVisible t
+    where
+        myToString :: t -> String
+        mySize :: t -> Int
+
+instance MyVisible Char
+    where
+        myToString ch = [ch]
+        mySize ch = 1
+
+instance MyVisible Bool
+    where
+        myToString True = "True"
+        myToString False = "False"
+        mySize _ = 1
+
+instance MyVisible t => MyVisible [t]
+    where
+        myToString = concat.(map myToString)
+        mySize = (foldr (+) 0).(map mySize)
+
 -- Using Eq
 
-membership3 :: Eq t => [t] -> t -> Bool
+-- Only works for the types instantiated above
+membership3 :: MyEq t => [t] -> t -> Bool
 membership3 [] x = False
-membership3 (a:as) x = (a == x) || (membership3 as x)
+membership3 (a:as) x = (a === x) || (membership3 as x)
+
+-- Derived Classes
+
+--class Eq t => Ord t
+--    where
+--        (<), (<=), (>), (>=) :: t -> t -> Bool
+--        max, min :: t -> t -> t
