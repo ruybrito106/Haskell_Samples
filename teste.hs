@@ -584,3 +584,95 @@ removerLowerSum :: [[Int]] -> Int -> [[Int]]
 removerLowerSum list val = filter (func) (list)
     where
         func l = (foldr (+) 0 l) >= val
+
+-- Trying function composition with sqrt 4
+sqr4 :: Float -> Float
+sqr4 = sqrt . sqrt
+
+-- Trying function composition with counting vowels of a given string
+onlyVowel :: String -> String
+onlyVowel str = filter (isVowel) (str)
+    where
+        isVowel x = x == 'a' || x == 'e' || x == 'i' || x == 'o' || x == 'u'
+
+countVowels :: String -> Int
+countVowels = length . onlyVowel
+
+-- Iterating with multiple function compositions
+iter :: Int -> (t -> t) -> (t -> t)
+iter 0 f = id
+iter n f = (iter (n - 1) (f)) . f
+
+-- High Order functions
+addNum :: Int -> (Int -> Int)
+addNum n = h
+    where
+        h m = n + m
+
+-- (\x -> x + 1) is a function that receives as a parameter x and returns x + 1
+subNum :: Int -> (Int -> Int)
+subNum n = (\m -> n - m)
+
+anonymousAnd :: Bool -> (Bool -> Bool)
+anonymousAnd = (\m n -> n && m)
+
+-- getGeometricMean of pairs
+getHipotenuse :: [(Float, Float)] -> [Float]
+getHipotenuse list = map (\(x, y) -> sqrt (x * x + y * y)) list
+
+-- invertFunc with lambda
+randFunc :: Float -> Float -> Bool
+randFunc i f = i + f > 10
+
+invertFunc :: (t -> u -> v) -> (u -> t -> v)
+invertFunc f = (\x y -> f (y) (x))
+
+-- onlyFirst using lambda
+onlyFirsts :: [(t, t)] -> [t]
+onlyFirsts list = map (\(x, y) -> x) list
+
+-- size greater than n with lambda
+sizeGreater :: [[t]] -> Int -> [[t]]
+sizeGreater list x = filter (func) list
+    where
+        func = (\l -> (length l > x))
+
+-- getSet using lambda
+getSet :: [[Int]] -> [Int]
+getSet [] = []
+getSet (a:as) = (filter (func) a) ++ getSet (as)
+    where
+        func = (\x -> not (membership3 (getSet as) (x)))
+
+-- Partial application of functions
+-- Sum in range
+sumN :: Int -> Int -> Int
+sumN a c = a + c
+
+sumNList :: [Int] -> Int -> [Int]
+sumNList list c = map (sumN c) list
+
+-- Lazy evaluation
+
+f :: Int -> Int -> Int
+f a b = a + 12
+
+g :: Int -> Int
+g c = c + g c
+
+type Name = String
+type Age = Int
+type Persona = (Name, Age)
+
+getName :: Persona -> Name
+getName (n, a) = n
+
+-- Mapfilter
+
+mapfilter :: (t -> Bool) -> (t -> u) -> [t] -> [u]
+mapfilter f g [] = []
+mapfilter f g list = (g (head d)) : (mapfilter f g (tail d))
+    where
+        d = [x | x <- list, f (x)]
+
+-- Mapfoldr

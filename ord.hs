@@ -21,3 +21,18 @@ onlyPerfectSqr :: [Float] -> [Float]
 onlyPerfectSqr list = filter (isPS) (list)
     where
         isPS x = (sqrt x) * (sqrt x) == x
+
+-- String processing
+--woords :: String -> [String]
+--woords [] = []
+--woords (a:as)
+--    | isLetter a = (takeWhile (isLetter) (as)) ++ (woords (dropWhile (isLetter) (as)))
+--    | otherwise = woords (dropWhile (== ' ') (as))
+
+type Nome = String
+type Idade = Int
+
+data Pessoas = Pessoa Nome Idade deriving (Show)
+
+showPerson :: Pessoas -> String
+showPerson (Pessoa n a) = n ++ " -- " ++ show a
