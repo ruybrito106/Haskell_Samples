@@ -675,4 +675,5 @@ mapfilter f g list = (g (head d)) : (mapfilter f g (tail d))
     where
         d = [x | x <- list, f (x)]
 
--- Mapfoldr
+ff :: Int -> [Int]
+ff n = [1] ++ [x*y | (x, y) <- zip [2..n] (ff (n - 1))]

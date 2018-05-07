@@ -36,3 +36,25 @@ data Pessoas = Pessoa Nome Idade deriving (Show)
 
 showPerson :: Pessoas -> String
 showPerson (Pessoa n a) = n ++ " -- " ++ show a
+
+data Pilha t = Top | Cons t (Pilha t) deriving (Show)
+
+push :: t -> Pilha t -> Pilha t
+push x (Top) = (Cons x (Top))
+push x (Cons c s) = (Cons c (push x s))
+
+pop :: Pilha t -> Pilha t
+pop Top = Top
+pop (Cons c (Top)) = Top
+pop (Cons c s) = (Cons c (pop s))
+
+top :: Pilha t -> t
+top (Cons c (Top)) = c
+top (Cons c s) = top (s)
+
+quick :: [Int] -> [Int]
+quick [] = []
+quick list = quick (lower) ++ ((head list) : quick (great))
+    where
+        lower = [x | x <- (tail list), x < (head list)]
+        great = [x | x <- (tail list), x >= (head list)]
