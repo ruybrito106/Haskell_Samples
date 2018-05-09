@@ -73,34 +73,40 @@ joinn t1 t2
 
 -- Generator definition
 
-instance Arbitrary a => Arbitrary (Tree a) where
-    arbitrary = sized (arbitraryTree 2 1)
+instance  (Arbitrary a, Integral a) => Arbitrary (Tree a) where
+    arbitrary = sized tree
+  
+tree :: (Integral b, Arbitrary b, Integral a) => b -> Gen (Tree a)
+tree 0 = return Nil
+tree n = frequency [(1, return Nil), (3, tree2 n 0 1000)]
 
-arbitraryTree _ _ 0 = return Nil
-arbitraryTree a b n = frequency [
-    (a, return Nil), 
-    (b, liftM3 Node (arbitrary) (arbitraryTree a b (n `div` 2)) (arbitraryTree a b (n `div` 2))) ]
+tree2 :: (Integral b, Arbitrary b, Enum a, Integral a) => b -> a -> a -> Gen (Tree a)
+tree2 0 _ _ = return Nil
+tree2 n floor roof 
+    | floor >= roof  = return Nil
+    | otherwise = val >>= generate
+    where 
+        val = elements [floor..roof]
+        subtree = tree2 (n `div` 2)
+        generate = \x -> liftM2 (Node x) (subtree floor (x - 1)) (subtree (x + 1) roof)
 
-genTree :: Int -> Int -> Int -> Gen (Tree Int) 
-genTree n a b = arbitraryTree a b n :: Gen (Tree Int)
+genTree :: Int -> Gen (Tree Int)
+genTree n = tree n :: Gen (Tree Int)
+
+-- Testing auxiliary functions
+
+isSearchTree :: Ord a => Tree a -> Bool
+isSearchTree Nil = True
+isSearchTree (Node x left right) = 
+    ((isNil left) || x >= (treeVal left)) && 
+    ((isNil right) || x <= (treeVal right)) &&
+    (isSearchTree left) &&
+    (isSearchTree right)
 
 -- Testing properties
 
-prop_isNil :: Property
-prop_isNil = forAll (genTree 10 1 0) $ (\t -> isNil t)
-
-prop_isNode :: Property
-prop_isNode = forAll (genTree 10 0 1) $ (\t -> isNode t)
-
-prop_insertion :: Int -> Property
-prop_insertion x = forAll (genTree 10 1 3) $ (\t -> elemT x (insTree x t))
-
-constt :: Int -- Defined to avoid cases in which value deleted was present more than once on the Tree
-constt = -2139021
-
-prop_deletion :: Property
-prop_deletion = forAll (genTree 10 1 3) $ (\t -> elemT (constt) (deleteNode constt (insTree constt t)) == False)
-
+prop_isSearchTree :: Property
+prop_isSearchTree = forAll (genTree 100) $ (\t -> isSearchTree t)
 
 
 
@@ -252,20 +258,22 @@ genSet = arbitrary :: Gen (Set Int)
 genKSets :: Int -> Gen [Set Int]
 genKSets k = vectorOf (k) (arbitrary :: Gen (Set Int))
 
--- Testing properties
+-- Testing auxiliary functions
 
 isOrdered :: Ord a => Set a -> Bool
 isOrdered (Set []) = True
 isOrdered (Set [x]) = True
 isOrdered (Set (x:y:xs)) = x <= y && isOrdered (Set (y:xs)) 
 
-prop_isOrdered :: Property
-prop_isOrdered = forAll (genSet) $ (\s -> isOrdered s)
-
 isUnique :: Ord a => Set a -> Bool
 isUnique (Set []) = True
 isUnique (Set [x]) = True
 isUnique (Set (x:y:xs)) = x < y && isUnique (Set (y:xs)) 
+
+-- Testing properties
+
+prop_isOrdered :: Property
+prop_isOrdered = forAll (genSet) $ (\s -> isOrdered s)
 
 prop_isUnique :: Property
 prop_isUnique = forAll (genSet) $ (\s -> isUnique s)
@@ -344,35 +352,6 @@ update s key value = upsertSuchThat (s) (\e -> snd e == key) (value, key)
 data Color = R | B deriving (Eq, Show)
 
 data RBTree a = E | T Color (RBTree a) a (RBTree a) deriving (Eq, Show)
-
--- Invariants
--- 1. No red node has a red parent
--- 2. Every path from the root node to an empty node contains the same number of black nodes
--- 3. The root and leaves of the tree are black
-
-someNodeHasRedParent :: Eq a => RBTree a -> Bool
-someNodeHasRedParent E = False
-someNodeHasRedParent (T R left value right) 
-    | left /= emptyRBTree || right /= emptyRBTree = False
-    | otherwise = someNodeHasRedParent left || someNodeHasRedParent right
-someNodeHasRedParent (T B left value right) = someNodeHasRedParent left || someNodeHasRedParent right
-
-rootIsBlack :: RBTree a -> Bool
-rootIsBlack E = True
-rootIsBlack (T R _ _ _) = False
-rootIsBlack (T B _ _ _) = True
-
-leavesAreBlack :: Eq a => RBTree a -> Bool
-leavesAreBlack E = True
-leavesAreBlack (T R left _ right)
-    | left == emptyRBTree && right == emptyRBTree = False
-    | otherwise = (leavesAreBlack left) && (leavesAreBlack right)
-leavesAreBlack (T B left _ right)
-    | left == emptyRBTree && right == emptyRBTree = True
-    | otherwise = (leavesAreBlack left) && (leavesAreBlack right)
-
-rootAndLeavesAreBlack :: Eq a => RBTree a -> Bool
-rootAndLeavesAreBlack a = (rootIsBlack a) && (leavesAreBlack a)
 
 emptyRBTree :: RBTree a
 emptyRBTree = E
@@ -457,26 +436,109 @@ fuse (T B t1 x t2) (T B t3 y t4)  =
 
 -- Generator definition
 
-instance Arbitrary a => Arbitrary (RBTree a) where
-    arbitrary = frequency [ 
-        (3, return E), 
-        (1, liftM4 T (arbitraryColor) (arbitraryRBTree) (arbitrary) (arbitraryRBTree)) ]
+instance  (Arbitrary a, Integral a) => Arbitrary (RBTree a) where
+    arbitrary = sized rbtree
+  
+rbtree :: (Integral b, Arbitrary b, Arbitrary a, Integral a) => b -> Gen (RBTree a)
+rbtree 0 = return E
+rbtree n = frequency [(1, return E), (3, rbtree2 n)]
 
-arbitraryColor :: Gen Color 
-arbitraryColor = oneof [return R, return B]
+rbtree2 :: (Integral b, Arbitrary b, Arbitrary a, Integral a) => b -> Gen (RBTree a)
+rbtree2 0 = return E
+rbtree2 n = val >>= generate
+    where
+        val = listOf (arbitrary)
+        generate = \x -> return (rbtreeFromList x)
 
-arbitraryRBTree :: Arbitrary a => Gen (RBTree a)
-arbitraryRBTree = frequency [
-        (3, return E),
-        (1, liftM4 T (arbitraryColor) (arbitraryRBTree) (arbitrary) (arbitraryRBTree)) ]
+rbtreeFromList :: Ord a => [a] -> RBTree a 
+rbtreeFromList [] = E
+rbtreeFromList (x:xs) = insertNode (x) (rbtreeFromList xs)
 
-genRBTree :: Gen (RBTree Int)
-genRBTree = arbitrary :: Gen (RBTree Int)
+genRBTree :: Int -> Gen (RBTree Int)
+genRBTree n = rbtree n :: Gen (RBTree Int)
 
--- Testing Properties
+-- Testing auxiliary functions
 
-prop_noNodeHasRedParent :: Property
-prop_noNodeHasRedParent = forAll (genRBTree) $ (\t -> someNodeHasRedParent t == False)
+isBlackOrEmpty :: Eq a => RBTree a -> Bool
+isBlackOrEmpty E = True
+isBlackOrEmpty (T B _ _ _) = True
+isBlackOrEmpty (T R _ _ _) = False
+
+isRedOrEmpty :: Eq a => RBTree a -> Bool
+isRedOrEmpty E = True
+isRedOrEmpty (T B _ _ _) = False
+isRedOrEmpty (T R _ _ _) = True
+
+redNodesHaveBothBlackChildren :: Eq a => RBTree a -> Bool
+redNodesHaveBothBlackChildren E = True
+redNodesHaveBothBlackChildren (T B left _ right) = 
+    (redNodesHaveBothBlackChildren left) &&
+    (redNodesHaveBothBlackChildren right) 
+redNodesHaveBothBlackChildren (T R left val right) = 
+    (isBlackOrEmpty left) &&
+    (isBlackOrEmpty right) &&
+    (redNodesHaveBothBlackChildren left) &&
+    (redNodesHaveBothBlackChildren right) 
+
+rootIsBlack :: RBTree a -> Bool
+rootIsBlack E = True
+rootIsBlack (T R _ _ _) = False
+rootIsBlack (T B _ _ _) = True
+
+leavesAreBlack :: Eq a => RBTree a -> Bool
+leavesAreBlack _ = True -- Leaves are always uncolored in this structure
+
+rootAndLeavesAreBlack :: Eq a => RBTree a -> Bool
+rootAndLeavesAreBlack a = (rootIsBlack a) && (leavesAreBlack a)
+
+-- Testing properties
+
+prop_redNodesHaveBothBlackChildren :: Property
+prop_redNodesHaveBothBlackChildren = forAll (genRBTree 100) $ (\t -> redNodesHaveBothBlackChildren t == True)
 
 prop_rootAndLeavesAreBlack :: Property
-prop_rootAndLeavesAreBlack = forAll (genRBTree) $ (\t -> rootAndLeavesAreBlack t == True)
+prop_rootAndLeavesAreBlack = forAll (genRBTree 100) $ (\t -> rootAndLeavesAreBlack t == True)
+
+
+
+
+
+
+
+
+
+
+
+-- Problem 5
+-- Statement:
+-- | Escreva uma propriedade que estabelece que uma árvore rubro-negra satisfaz a invariante de árvore binária de busca (ordem dos elementos)
+-- Property definition
+
+rbtreeVal :: RBTree a -> a
+rbtreeVal E = error("treeVal")
+rbtreeVal (T _ _ x _) = x
+
+rbTreeIsSearchTree :: Ord a => RBTree a -> Bool
+rbTreeIsSearchTree E = True
+rbTreeIsSearchTree (T _ left x right) = 
+    ((isEmptyRBTree left) || x >= (rbtreeVal left)) && 
+    ((isEmptyRBTree right) || x <= (rbtreeVal right)) &&
+    (rbTreeIsSearchTree left) &&
+    (rbTreeIsSearchTree right)
+
+prop_rbTreeIsSearchTree :: Property
+prop_rbTreeIsSearchTree = forAll (genRBTree 100) $ (\t -> rbTreeIsSearchTree t)
+
+
+
+
+
+
+
+
+
+
+-- Problem 6
+-- Statement:
+-- | Defina uma implementação do tipo abstrato de dados Set usando árvores de busca
+-- Data definition
