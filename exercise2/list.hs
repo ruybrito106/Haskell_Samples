@@ -82,13 +82,13 @@ tree n = frequency [(1, return Nil), (3, tree2 n 0 1000)]
 
 tree2 :: (Integral b, Arbitrary b, Enum a, Integral a) => b -> a -> a -> Gen (Tree a)
 tree2 0 _ _ = return Nil
-tree2 n floor roof 
-    | floor >= roof  = return Nil
+tree2 n f r 
+    | f >= r  = return Nil
     | otherwise = val >>= generate
     where 
-        val = elements [floor..roof]
+        val = elements [f..r]
         subtree = tree2 (n `div` 2)
-        generate = \x -> liftM2 (Node x) (subtree floor (x - 1)) (subtree (x + 1) roof)
+        generate = \x -> liftM2 (Node x) (subtree f (x - 1)) (subtree (x + 1) r)
 
 genTree :: Int -> Gen (Tree Int)
 genTree n = tree n :: Gen (Tree Int)
@@ -151,18 +151,6 @@ memSet (Set (x:xs)) y
     | x < y = memSet (Set xs) y
     | x == y = True
     | otherwise = False
-
-elementSuchThat :: Set a -> (a -> Bool) -> a
-elementSuchThat (Set []) f = error "elementSuchThat"
-elementSuchThat (Set (x:xs)) f
-    | f x == True = x
-    | otherwise = elementSuchThat (Set xs) f
-
-upsertSuchThat :: Ord a => Set a -> (a -> Bool) -> a -> Set a
-upsertSuchThat (Set []) (f) (newElem) = sing newElem
-upsertSuchThat (Set (x:xs)) (f) (newElem)
-    | f x == True = unionn (sing newElem) (upsertSuchThat (Set xs) (f) (newElem))   
-    | otherwise = unionn (sing x) (upsertSuchThat (Set xs) (f) (newElem))
 
 unionn :: Ord a => Set a -> Set a -> Set a
 unionn (Set xs) (Set ys) = Set (uni xs ys)
@@ -259,6 +247,18 @@ genKSets :: Int -> Gen [Set Int]
 genKSets k = vectorOf (k) (arbitrary :: Gen (Set Int))
 
 -- Testing auxiliary functions
+
+elementSuchThat :: Set a -> (a -> Bool) -> a
+elementSuchThat (Set []) f = error "elementSuchThat"
+elementSuchThat (Set (x:xs)) f
+    | f x == True = x
+    | otherwise = elementSuchThat (Set xs) f
+
+upsertSuchThat :: Ord a => Set a -> (a -> Bool) -> a -> Set a
+upsertSuchThat (Set []) (f) (newElem) = sing newElem
+upsertSuchThat (Set (x:xs)) (f) (newElem)
+    | f x == True = unionn (sing newElem) (upsertSuchThat (Set xs) (f) (newElem))   
+    | otherwise = unionn (sing x) (upsertSuchThat (Set xs) (f) (newElem))
 
 isOrdered :: Ord a => Set a -> Bool
 isOrdered (Set []) = True
@@ -541,4 +541,105 @@ prop_rbTreeIsSearchTree = forAll (genRBTree 100) $ (\t -> rbTreeIsSearchTree t)
 -- Problem 6
 -- Statement:
 -- | Defina uma implementação do tipo abstrato de dados Set usando árvores de busca
+-- Data definition
+
+newtype TSet a = TSet (Tree a) deriving (Show)
+
+emptyTSet :: TSet a
+emptyTSet = TSet Nil
+
+isEmptyTSet :: Eq a => TSet a -> Bool
+isEmptyTSet s = eqTSet s emptyTSet
+
+instance Eq a => Eq ( TSet a ) where
+    (==) = eqTSet
+
+eqTSet :: Eq a => TSet a -> TSet a -> Bool
+eqTSet (TSet xs) (TSet ys) = (xs == ys)
+
+singTSet :: Ord a => a -> TSet a
+singTSet x = TSet (insTree x nil)
+
+memTSet :: Ord a => TSet a -> a -> Bool
+memTSet (TSet Nil) y = False
+memTSet (TSet (Node x left right)) y
+    | x < y = memTSet (TSet right) y
+    | x > y = memTSet (TSet left) y 
+    | otherwise = True
+
+insertTSet :: (Eq a, Ord a) => a -> TSet a -> TSet a
+insertTSet x (TSet t1)
+    | elemT x t1 = TSet t1
+    | otherwise = TSet (insTree x t1)
+
+unionTSet :: Ord a => TSet a -> TSet a -> TSet a
+unionTSet (TSet Nil) (TSet Nil) = TSet Nil
+unionTSet (TSet t1) (TSet Nil) = TSet t1
+unionTSet (TSet Nil) (TSet t2) = TSet t2
+unionTSet (TSet t1) (TSet (Node x l r))
+    | elemT x t1 = unionTSet (TSet t1) (unionTSet (TSet l) (TSet r))
+    | otherwise = unionTSet (TSet (insTree x t1)) (unionTSet (TSet l) (TSet r))
+
+interTSet :: Ord a => TSet a -> TSet a -> TSet a
+interTSet (TSet Nil) (TSet _) = TSet Nil
+interTSet (TSet _) (TSet Nil) = TSet Nil
+interTSet (TSet t1) (TSet t2) = innTSet (TSet t1) (TSet t2) (TSet Nil)
+
+innTSet :: Ord a => TSet a -> TSet a -> TSet a -> TSet a
+innTSet (TSet Nil) (TSet _) (TSet t3) = TSet t3
+innTSet (TSet _) (TSet Nil) (TSet t3) = TSet t3
+innTSet (TSet (Node x l r)) (TSet t2) (TSet t3)
+    | inT2 == True && inT3 == False = innTSet (unionTSet (TSet l) (TSet r)) (TSet t2) (TSet (insTree x t3))
+    | otherwise = innTSet (unionTSet (TSet l) (TSet r)) (TSet t2) (TSet t3)
+    where
+        inT2 = elemT x t2
+        inT3 = elemT x t3
+
+-- Generator definition
+
+genTSet :: Int -> Gen (TSet Int)
+genTSet n = (genTree n) >>= (\x -> return (TSet x)) 
+
+genKTSets :: Int -> Gen [TSet Int]
+genKTSets k = vectorOf (k) (genTSet 5 :: Gen (TSet Int))
+
+-- Testing properties
+
+prop_commutative_law_tset :: Property
+prop_commutative_law_tset = forAll (genKTSets 2) $ (
+    \(a:b:as) -> 
+        eqTSet (unionTSet (a) (b)) (unionTSet (b) (a)) &&
+        eqTSet (interTSet (b) (a)) (interTSet (a) (b))
+    )
+
+prop_associative_law_tset :: Property
+prop_associative_law_tset = forAll (genKTSets 3) $ (
+    \(a:b:c:as) -> 
+        eqTSet (unionTSet (unionTSet (a) (b)) (c)) (unionTSet (a) (unionTSet (b) (c))) &&
+        eqTSet (interTSet (interTSet (a) (b)) (c)) (interTSet (a) (interTSet (b) (c)))
+    )
+
+prop_distributive_law_tset :: Property
+prop_distributive_law_tset = forAll (genKTSets 3) $ (
+    \(a:b:c:as) -> 
+        eqTSet (unionTSet (a) (interTSet (b) (c))) (interTSet (unionTSet (a) (b)) (unionTSet (a) (c))) &&
+        eqTSet (interTSet (a) (unionTSet (b) (c))) (unionTSet (interTSet (a) (b)) (interTSet (a) (c)))
+    )
+
+prop_identity_law_tset :: Property
+prop_identity_law_tset = forAll (genTSet 100) $ (\s -> eqTSet (unionTSet (s) (emptyTSet)) (s))  
+
+
+
+
+
+
+
+
+
+
+
+-- Problem 7
+-- Statement:
+-- | Defina uma propriedade QuickCheck para as funções de busca em grafos
 -- Data definition
