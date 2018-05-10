@@ -643,3 +643,147 @@ prop_identity_law_tset = forAll (genTSet 100) $ (\s -> eqTSet (unionTSet (s) (em
 -- Statement:
 -- | Defina uma propriedade QuickCheck para as funções de busca em grafos
 -- Data definition
+
+type Relation a = Set (a,a) 
+
+image :: Ord a => Relation a -> a -> Set a
+image rel val = mapSet snd (filterSet ((== val) . fst) rel)
+
+setImage :: Ord a => Relation a -> Set a -> Set a
+setImage rel = unionSet . mapSet (image rel) 
+
+unionSet :: Ord a => Set (Set a) -> Set a
+unionSet = foldSet unionn empty
+
+addImage :: Ord a => Relation a -> Set a -> Set a
+addImage rel st = st `unionn` setImage rel st
+
+compose :: Ord a => Relation a -> Relation a -> Relation a
+compose rel1 rel2 = mapSet outer (filterSet equals (setProduct rel1 rel2))
+    where
+        equals ((a,b),(c,d)) = (b==c)
+        outer  ((a,b),(c,d)) = (a,d)
+
+setProduct :: (Ord a,Ord b) => Set a -> Set b -> Set (a,b)
+setProduct st1 st2 = unionSet (mapSet (adjoin st1) st2)
+
+adjoin :: (Ord a,Ord b) => Set a -> b -> Set (a,b)
+adjoin st el = mapSet (addEl el) st
+    where
+        addEl el el' = (el',el)
+
+tClosure :: Ord a => Relation a -> Relation a
+tClosure rel = limit addGen rel
+    where
+        addGen rel' = rel' `unionn` compose rel' rel
+
+limit :: Eq a => (a -> a) -> a -> a
+limit f xs 
+    | xs == next = xs
+    | otherwise = limit f next
+    where
+        next = f xs
+
+connect :: Ord a => Relation a -> Relation a
+connect rel = clos `inter` solc
+    where
+        clos = tClosure rel
+        solc = inverse clos
+
+inverse :: Ord a => Relation a -> Relation a
+inverse = mapSet swap
+    where 
+        swap (x,y) = (y,x)
+
+classes :: Ord a => Relation a -> Set (Set a)
+classes rel = limit (addImages rel) start
+    where
+        start = mapSet sing (eles rel)
+
+eles :: Ord a => Relation a -> Set a
+eles rel = mapSet fst rel `unionn` mapSet snd rel
+
+addImages :: Ord a => Relation a -> Set (Set a) -> Set (Set a)
+addImages rel = mapSet (addImage rel)
+
+newDescs :: Ord a => Relation a -> Set a -> a -> Set a
+newDescs rel st v = image rel v `diff` st
+
+findDescs :: Ord a => Relation a -> [a] -> a -> [a]
+findDescs rel xs v = flatten (newDescs rel (makeSet xs) v)
+
+breadthFirst :: Ord a => Relation a -> a -> [a]
+breadthFirst rel val = limit step start
+    where
+        start = [val]
+        step xs = xs ++ nub (concat (map (findDescs rel xs) xs))
+
+depthFirst :: Ord a => Relation a -> a -> [a]
+depthFirst rel v = depthSearch rel v []
+
+depthSearch :: Ord a => Relation a -> a -> [a] -> [a]
+depthSearch rel v used = v : depthList rel (findDescs rel used' v) used'
+    where
+        used' = v:used
+
+depthList :: Ord a => Relation a -> [a] -> [a] -> [a]
+depthList rel [] used = [] 
+depthList rel (val:rest) used = next ++ depthList rel rest (used++next)
+    where 
+    next 
+        | elem val used = []
+        | otherwise = depthSearch rel val used
+
+-- Generator definition
+
+treeToRelation :: Ord a => Tree a -> Relation a
+treeToRelation Nil = Set []
+treeToRelation (Node x Nil Nil) = Set []
+treeToRelation (Node x Nil r) = unionn (Set [(x, treeVal r)]) (treeToRelation r)
+treeToRelation (Node x l Nil) = unionn (Set [(x, treeVal l)]) (treeToRelation l)
+treeToRelation (Node x l r) = unionn (unionn (Set [(x, treeVal r)]) (Set [(x, treeVal l)])) (unionn (treeToRelation l) (treeToRelation r))
+
+addEdges :: Ord a => Relation a -> Relation a
+addEdges (Set []) = Set []
+addEdges (Set (x:xs)) = unionn (Set [(x), (snd x, fst x)]) (addEdges (Set xs))
+
+genRelation :: Int -> Gen (Relation Int)
+genRelation n = (genTree n) >>= (\x -> return (addEdges (treeToRelation x)))
+
+-- Testing auxiliary functions
+
+nodeInList :: Eq a => a -> [a] -> Bool
+nodeInList x [] = False
+nodeInList x (a:as) = (x == a) || (nodeInList x as)
+
+graphNodes :: Eq a => Relation a -> [a]
+graphNodes (Set []) = []
+graphNodes (Set (x:xs))
+    | fstOut && sndOut = (fst x) : (snd x) : rest
+    | fstOut = (fst x) : rest
+    | sndOut = (snd x) : rest
+    | otherwise = rest
+    where 
+        rest = graphNodes (Set xs)
+        fstOut = (nodeInList (fst x) (rest)) == False
+        sndOut = (nodeInList (snd x) (rest)) == False 
+
+equalsAnyOrder :: Ord a => [a] -> [a] -> Bool
+equalsAnyOrder as bs = (sort as) == (sort bs)
+
+getRelationHead :: Relation a -> a
+getRelationHead (Set []) = error "xablau"
+getRelationHead (Set x) = fst (head x)
+
+-- Testing properties
+
+prop_breadthFirstSearchReturnAllNodes :: Property
+prop_breadthFirstSearchReturnAllNodes = forAll (genRelation 100) $ (\r -> length (graphNodes r) == 0 || equalsAnyOrder (graphNodes r) (breadthFirst r (getRelationHead r)))
+
+prop_depthFirstSearchReturnAllNodes :: Property
+prop_depthFirstSearchReturnAllNodes = forAll (genRelation 100) $ (\r -> length (graphNodes r) == 0 || equalsAnyOrder (graphNodes r) (depthFirst (r) (getRelationHead r)))
+
+prop_depthEqualsBreadthInNodes :: Property
+prop_depthEqualsBreadthInNodes = forAll (genRelation 100) $ (
+    \r -> length (graphNodes r) == 0 || equalsAnyOrder (depthFirst (r) (getRelationHead r)) (breadthFirst r (getRelationHead r))
+    )
